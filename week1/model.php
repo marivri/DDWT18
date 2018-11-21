@@ -107,7 +107,7 @@ function p_print($input){
 }
 
 /**
- * Creats HTML alert code with information about the success or failure
+ * Creates HTML alert code with information about the success or failure
  * @param bool $type True if success, False if failure
  * @param string $message Error/Success message
  * @return string
@@ -118,4 +118,253 @@ function get_error($feedback){
             '.$feedback['message'].'
         </div>';
     return $error_exp;
+}
+
+/**
+ * Setup connection with database
+ * @param $host
+ * @param $db
+ * @param $user
+ * @param $pass
+ * @return PDO
+ */
+function connect_db($host, $db, $user, $pass){
+    $charset = 'utf8mb4';
+
+    $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+    $options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ];
+    try {
+        $pdo = new PDO($dsn, $user, $pass, $options);
+    } catch (\PDOException $e) {
+        echo sprintf("Failed to connect. %s",$e->getMessage());
+    }
+    return $pdo;
+}
+
+/**
+ * @param $pdo
+ * @return string
+ */
+function count_series($pdo){
+    $stmt = $pdo->prepare('SELECT * FROM series');
+    $stmt->execute();
+    $count = $stmt->rowCount();
+    return htmlspecialchars($count);
+}
+
+function get_series($pdo){
+    $stmt = $pdo->prepare('SELECT * FROM series');
+    $stmt->execute();
+    $series = $stmt->fetchAll();
+    $series_exp = Array();
+
+    /* Create array with htmlspecialchars */
+    foreach ($series as $key => $value){
+        foreach ($value as $user_key => $user_input) {
+            $series_exp[$key][$user_key] = htmlspecialchars($user_input);
+        }
+    }
+    return $series_exp;
+}
+
+/**
+ * Creates HTML table with series
+ * @param $series
+ * @return string html code which represents the series table
+ */
+function get_series_table($series){
+    $table_exp = '
+ 	<table class="table table-hover">
+ 	<thead
+ 	<tr>
+ 	<th scope="col">Series</th>
+ 	<th scope="col"></th>
+ 	</tr>
+ 	</thead>
+ 	<tbody>';
+    foreach($series as $key => $value){
+        $table_exp .= '
+ 		<tr>
+ 		<th scope="row">'.$value['name'].'</th>
+ 		<td><a href="/DDWT18/week1/serie/?serie_id='.$value['id'].'" role="button" class="btn btn-primary">More info</a></td>
+ 		</tr>
+ 		';
+    }
+    $table_exp .= '
+ 	</tbody>
+	</table>
+ 	';
+    return $table_exp;
+}
+
+/**
+ * Find series in database
+ * @param $pdo
+ * @param $serie_id
+ * @return array
+ */
+function get_series_info($pdo, $serie_id){
+    $stmt = $pdo->prepare('SELECT * FROM series WHERE id = ?');
+    $stmt->execute([$serie_id]);
+    $serie_info = $stmt->fetch();
+    $serie_info_exp = Array();
+
+    /* Create array with htmlspecialchars */
+    foreach ($serie_info as $key => $value){
+        $serie_info_exp[$key] = htmlspecialchars($value);
+    }
+    return $serie_info_exp;
+}
+
+/**
+ * Add serie to db
+ * @param $pdo
+ * @param $serie_info
+ * @return array
+ */
+function add_series($pdo, $serie_info){
+    /* Check if all fields are set */
+    if (
+        empty($serie_info['name']) or
+        empty($serie_info['creator']) or
+        empty($serie_info['seasons']) or
+        empty($serie_info['abstract'])
+    ) {
+        return [
+            'type' => 'danger',
+            'message' => 'There was an error. Not all fields were filled in.'
+        ];
+    }
+
+    /* Check data type */
+    if (!is_numeric($serie_info['seasons'])) {
+        return [
+            'type' => 'danger',
+            'message' => 'There was an error. You should enter a number in the field Seasons.'
+        ];
+    }
+
+    /* Check if serie already exists */
+    $stmt = $pdo->prepare('SELECT * FROM series WHERE name = ?');
+    $stmt->execute([$serie_info['name']]);
+    $serie = $stmt->rowCount();
+    if ($serie){
+        return [
+            'type' => 'danger',
+            'message' => 'This series was already added.'
+        ];
+    }
+
+    /* Add serie */
+    $stmt = $pdo->prepare('INSERT INTO series (name, creator, seasons, abstract) VALUES (?, ?, ?, ?)');
+    $stmt->execute([
+        $serie_info['name'],
+        $serie_info['creator'],
+        $serie_info['seasons'],
+        $serie_info['abstract']
+    ]);
+    $inserted = $stmt->rowCount();
+    if ($inserted == 1) {
+        return [
+            'type' => 'succes',
+            'message' => sprintf("Series '%s' added to series overview.", $serie_info['name'])
+        ];
+    }
+}
+
+/**
+ * update serie in db
+ * @param $pdo
+ * @param $serie_info
+ * @return array
+ */
+function update_series($pdo, $serie_info){
+    /* Check if all fields are set */
+    if (
+        empty($serie_info['name']) or
+        empty($serie_info['creator']) or
+        empty($serie_info['seasons']) or
+        empty($serie_info['abstract']) or
+        empty($serie_info['serie_id'])
+    ){
+        return [
+            'type' => 'danger',
+            'message' => 'There was an error. Not all fields were filled in.'
+        ];
+    }
+
+    /* Check data type */
+    if (!is_numeric($serie_info['seasons'])) {
+        return [
+            'type' => 'danger',
+            'message' => 'There was an error. You should enter a number in the field Seasons.'
+        ];
+    }
+
+    /* Get current series name */
+    $stmt = $pdo->prepare('SELECT * FROM series WHERE id = ?');
+    $stmt->execute([$serie_info['serie_id']]);
+    $serie = $stmt->fetch();
+    $current_name = $serie['name'];
+
+    /* Check if serie already exists */
+    $stmt = $pdo->prepare('SELECT * FROM series WHERE name = ?');
+    $stmt->execute([$serie_info['name']]);
+    $serie = $stmt->fetch();
+    if ($serie_info['name'] == $serie['name'] and $serie['name'] != $current_name) {
+        return [
+            'type' => 'danger',
+            'message' => 'The name of the series cannot be changed, it already exists'
+        ];
+    }
+
+    /* Update Serie */
+    $stmt = $pdo->prepare("UPDATE series SET name = ?, creator = ?, seasons = ?, abstract = ? WHERE id = ?");
+    $stmt->execute([
+        $serie_info['name'],
+        $serie_info['creator'],
+        $serie_info['seasons'],
+        $serie_info['abstract'],
+        $serie_info['serie_id']
+    ]);
+    $updated = $stmt->rowCount();
+    if ($updated == 1) {
+        return [
+            'type' => 'succes',
+            'message' => 'Series was successfully edited.'
+        ];
+    }
+    else {
+        return [
+            'type' => 'warming',
+            'message' => 'The series was not edited. No changes were detected'
+        ];
+    }
+}
+
+/**
+ * Remove serie from db
+ * @param $pdo
+ * @param $serie_id
+ * @return array
+ */
+function remove_serie($pdo, $serie_id) {
+    $stmt = $pdo->prepare("DELETE FROM series WHERE id = ?");
+    $stmt->execute([$serie_id]);
+    $deleted = $stmt->rowCount();
+    if ($deleted == 1) {
+        return [
+            'type' => 'succes',
+            'message' => 'Series was removed'
+        ];
+    }
+    else {
+        return [
+            'type' => 'warning',
+            'message' => 'An error occurred. The series was not removed.'
+        ];
+    }
 }
