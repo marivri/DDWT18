@@ -9,7 +9,7 @@
 include 'model.php';
 
 /* Connect to db */
-$db = connect_db('localhost', 'ddwt18_week1', 'ddwt18', 'ddwt18');
+$db = connect_db('localhost', 'ddwt18_week1', 'ddwt18_1', 'ddwt18');
 
 /* Landing page */
 if (new_route('/DDWT18/week1/', 'get')) {
