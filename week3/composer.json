@@ -1,0 +1,15 @@
+{
+  "name": "marivri/DDWT18",
+  "description": "description_text",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "mariska",
+      "email": "m.de.vries.66@student.rug.nl"
+    }
+  ],
+  "require": {
+    "bramus/router": "1.3"
+  }
+}

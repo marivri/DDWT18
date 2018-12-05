@@ -9,7 +9,7 @@
 include 'model.php';
 
 /* Connect to DB */
-$db = connect_db('localhost', 'ddwt18_week2', 'ddwt18','ddwt18');
+$db = connect_db('localhost', 'ddwt18_week2', 'ddwt18_2','ddwt18');
 
 /* Get Number of Series */
 $nbr_series = count_series($db);
